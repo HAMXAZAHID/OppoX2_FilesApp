@@ -429,7 +429,16 @@ fun WebViewer(vm: ExplorerViewModel, onClose: () -> Unit, onOpenAsText: () -> Un
                             settings.builtInZoomControls = true
                             settings.displayZoomControls = false
                             webViewClient = object : android.webkit.WebViewClient() {
-                                override fun onPageFinished(view: android.webkit.WebView?, url: String?) { loading = false }
+                                override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                                    loading = false
+                                    // Pages a little wider than the watch would scroll sideways; clip them instead.
+                                    view?.evaluateJavascript(
+                                        "(function(){var s=document.createElement('style');" +
+                                            "s.textContent='html,body{overflow-x:hidden!important;max-width:100%!important}';" +
+                                            "(document.head||document.documentElement).appendChild(s);})()",
+                                        null,
+                                    )
+                                }
 
                                 // The watch's WebView can run out of memory on big pages and its
                                 // renderer dies. Without this the whole app is killed with it.
@@ -453,8 +462,8 @@ fun WebViewer(vm: ExplorerViewModel, onClose: () -> Unit, onOpenAsText: () -> Un
                         android.view.View(ctx)
                     }
                 },
-                // Keep the page inside the round screen: the corners of a square view are cut off.
-                modifier = Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 30.dp),
+                // A small inset only: bigger ones wasted too much of the round screen on the watch.
+                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 14.dp),
             )
         }
         if (loading && error == null && !crashed) CircularProgressIndicator(Modifier.size(36.dp))
