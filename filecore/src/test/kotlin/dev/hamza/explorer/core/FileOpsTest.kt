@@ -43,8 +43,7 @@ class FileOpsTest {
         assertEquals(FileKind.VIDEO, FileOps.kindOf("clip.mp4"))
         assertEquals(FileKind.APK, FileOps.kindOf("app.apk"))
         assertEquals(FileKind.OTHER, FileOps.kindOf("README"))
-        // Web pages go to a browser rather than the text viewer.
-        assertEquals(FileKind.OTHER, FileOps.kindOf("page.html"))
+        assertEquals(FileKind.WEB, FileOps.kindOf("page.HTML"))
     }
 
     @Test fun numberedNames() {

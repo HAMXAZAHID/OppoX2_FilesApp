@@ -8,7 +8,7 @@ import java.nio.file.Files
 
 enum class SortOrder(val label: String) { NAME("Name"), DATE("Newest"), SIZE("Largest") }
 
-enum class FileKind { FOLDER, IMAGE, TEXT, AUDIO, VIDEO, APK, OTHER }
+enum class FileKind { FOLDER, IMAGE, TEXT, WEB, AUDIO, VIDEO, APK, OTHER }
 
 /** One row in a folder listing. [childCount] is -1 when a folder can't be read. */
 data class Entry(
@@ -52,6 +52,7 @@ object FileOps {
             in text -> FileKind.TEXT
             in audio -> FileKind.AUDIO
             in video -> FileKind.VIDEO
+            "html", "htm", "xhtml" -> FileKind.WEB
             "apk" -> FileKind.APK
             else -> FileKind.OTHER
         }

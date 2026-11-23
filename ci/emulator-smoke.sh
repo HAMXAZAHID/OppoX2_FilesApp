@@ -75,6 +75,7 @@ png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 64, 64, 8, 2
 open("pic.png", "wb").write(png)
 PY
 adb push pic.png $T/pic.png
+adb shell "echo '<html><body><h1>Web page test</h1></body></html>' > $T/page.html"
 
 adb logcat -c || true
 echo "== Install and grant All files access (what the README tells you to do on the watch)"
@@ -103,6 +104,14 @@ sleep 3
 shot image
 adb shell pidof $PKG >/dev/null
 back
+
+echo "== Web page viewer"
+tap_text "page.html"
+sleep 4
+shot web
+adb shell pidof $PKG >/dev/null
+back
+wait_text "hello.txt"
 
 echo "== Copy hello.txt up into Download"
 long_press_text "hello.txt"

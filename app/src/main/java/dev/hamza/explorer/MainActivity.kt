@@ -29,6 +29,7 @@ import dev.hamza.explorer.ui.OptionsScreen
 import dev.hamza.explorer.ui.SettingsScreen
 import dev.hamza.explorer.ui.TextViewer
 import dev.hamza.explorer.ui.VideoPlayer
+import dev.hamza.explorer.ui.WebViewer
 import dev.hamza.explorer.ui.openRoute
 import dev.hamza.explorer.ui.toast
 import java.io.File
@@ -134,5 +135,6 @@ private fun App(vm: ExplorerViewModel) {
         composable("text") { TextViewer(vm) }
         composable("audio") { AudioPlayer(vm) }
         composable("video") { VideoPlayer(vm) }
+        composable("web") { WebViewer(vm) }
     }
 }

@@ -22,8 +22,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.sign
 
-/** How far one crown click scrolls (the "Normal" step the user picked in Home Files). */
-private val CrownStep: Dp = 44.dp
+/** How far one crown click scrolls. The user asked for the slow step (2026-11-23). */
+val CrownStep: Dp = 24.dp
 
 /**
  * Scrolls a fixed distance per crown click, whatever size the system says the click is.

@@ -383,6 +383,7 @@ fun OperationScreen(vm: ExplorerViewModel, onClose: () -> Unit) {
 fun openRoute(kind: FileKind): String? = when (kind) {
     FileKind.IMAGE -> "image"
     FileKind.TEXT -> "text"
+    FileKind.WEB -> "web"
     FileKind.AUDIO -> "audio"
     FileKind.VIDEO -> "video"
     else -> null

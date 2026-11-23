@@ -168,6 +168,7 @@ fun iconFor(kind: FileKind): Int = when (kind) {
     FileKind.FOLDER -> R.drawable.ic_folder
     FileKind.IMAGE -> R.drawable.ic_image
     FileKind.TEXT -> R.drawable.ic_text
+    FileKind.WEB -> R.drawable.ic_web
     FileKind.AUDIO -> R.drawable.ic_audio
     FileKind.VIDEO -> R.drawable.ic_video
     FileKind.APK -> R.drawable.ic_apk

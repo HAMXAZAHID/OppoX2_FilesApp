@@ -34,6 +34,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -344,6 +345,65 @@ fun VideoPlayer(vm: ExplorerViewModel) {
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+// ---------------- Web pages: shown in the app with the system WebView, crown scrolls ----------------
+
+@android.annotation.SuppressLint("SetJavaScriptEnabled")
+@Composable
+fun WebViewer(vm: ExplorerViewModel) {
+    val file = vm.viewing ?: return
+    val context = LocalContext.current
+    val stepPx = with(androidx.compose.ui.platform.LocalDensity.current) { CrownStep.toPx() }
+    var web by remember { mutableStateOf<android.webkit.WebView?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    // Same glide as the lists: each crown click adds a step, and the page eases toward it.
+    var pending by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(web) {
+        val w = web ?: return@LaunchedEffect
+        while (true) {
+            withFrameNanos { }
+            val p = pending
+            if (kotlin.math.abs(p) > 0.5f) {
+                val d = if (kotlin.math.abs(p) < 2f) p else p * 0.28f
+                w.scrollBy(0, d.toInt().let { if (it == 0) (if (d > 0) 1 else -1) else it })
+                pending = p - d
+            }
+        }
+    }
+    DisposableEffect(Unit) { onDispose { web?.destroy() } }
+    Box(
+        Modifier.fillMaxSize().background(Color.White).crownTicks { d -> pending += d * stepPx },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (error != null) {
+            Box(Modifier.fillMaxSize().background(Color.Black)) { CenteredMessage(error!!, ErrorColor) }
+        } else {
+            AndroidView(
+                factory = { ctx ->
+                    try {
+                        android.webkit.WebView(ctx).apply {
+                            settings.javaScriptEnabled = true
+                            settings.allowFileAccess = true // local pages and their images
+                            settings.useWideViewPort = true
+                            settings.loadWithOverviewMode = true
+                            settings.builtInZoomControls = true
+                            settings.displayZoomControls = false
+                            // Keep a margin so the round screen doesn't cut off the first and last lines.
+                            setPadding(0, 0, 0, 0)
+                            loadUrl(android.net.Uri.fromFile(file).toString())
+                            web = this
+                        }
+                    } catch (e: Exception) {
+                        // Some watches ship without a working WebView.
+                        error = "This watch can't show web pages. Long-press the file and use Open with another app."
+                        android.view.View(ctx)
+                    }
+                },
+                modifier = Modifier.fillMaxSize().padding(vertical = 20.dp),
             )
         }
     }
