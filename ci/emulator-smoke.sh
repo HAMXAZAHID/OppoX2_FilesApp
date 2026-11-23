@@ -107,10 +107,10 @@ back
 
 echo "== Web page viewer"
 tap_text "page.html"
-sleep 4
+sleep 6
 shot web
 adb shell pidof $PKG >/dev/null
-back
+tap_text "Close"
 wait_text "hello.txt"
 
 echo "== Copy hello.txt up into Download"

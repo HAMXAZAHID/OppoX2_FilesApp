@@ -8,6 +8,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -77,7 +79,13 @@ private fun App(vm: ExplorerViewModel) {
     }
     val options: (File) -> Unit = { vm.selected = it; nav.navigate("options") }
 
-    SwipeDismissableNavHost(navController = nav, startDestination = "home") {
+    val current by nav.currentBackStackEntryAsState()
+    // Web pages need every swipe for themselves; they have a close button instead.
+    SwipeDismissableNavHost(
+        navController = nav,
+        startDestination = "home",
+        userSwipeEnabled = current?.destination?.route != "web",
+    ) {
         composable("home") {
             HomeScreen(
                 vm,
@@ -135,6 +143,21 @@ private fun App(vm: ExplorerViewModel) {
         composable("text") { TextViewer(vm) }
         composable("audio") { AudioPlayer(vm) }
         composable("video") { VideoPlayer(vm) }
-        composable("web") { WebViewer(vm) }
+        composable("web") {
+            WebViewer(
+                vm,
+                onClose = { nav.popBackStack() },
+                onOpenAsText = { nav.navigate("text") { popUpTo("web") { inclusive = true } } },
+                onOpenWith = {
+                    vm.viewing?.let { f ->
+                        try {
+                            context.startActivity(Intent.createChooser(vm.openWithIntent(f), f.name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        } catch (_: ActivityNotFoundException) {
+                            toast(context, "No other app on the watch can open this file.")
+                        }
+                    }
+                },
+            )
+        }
     }
 }

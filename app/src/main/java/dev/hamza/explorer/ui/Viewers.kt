@@ -350,16 +350,44 @@ fun VideoPlayer(vm: ExplorerViewModel) {
     }
 }
 
-// ---------------- Web pages: shown in the app with the system WebView, crown scrolls ----------------
+// ---------------- Web pages: shown in the app with the system WebView ----------------
+
+/**
+ * Sends one smooth wheel scroll to the page at its centre. Chromium routes wheel events to the
+ * element under the pointer, so this also scrolls pages whose content sits in an inner scrolling
+ * box (where WebView.scrollBy does nothing).
+ */
+private fun wheel(view: android.webkit.WebView, pixels: Float) {
+    val factor = android.view.ViewConfiguration.get(view.context).scaledVerticalScrollFactor
+    val props = android.view.MotionEvent.PointerProperties().apply { id = 0; toolType = android.view.MotionEvent.TOOL_TYPE_MOUSE }
+    val coords = android.view.MotionEvent.PointerCoords().apply {
+        x = view.width / 2f
+        y = view.height / 2f
+        setAxisValue(android.view.MotionEvent.AXIS_VSCROLL, -pixels / factor)
+    }
+    val now = android.os.SystemClock.uptimeMillis()
+    val ev = android.view.MotionEvent.obtain(
+        now, now, android.view.MotionEvent.ACTION_SCROLL, 1, arrayOf(props), arrayOf(coords),
+        0, 0, 1f, 1f, 0, 0, android.view.InputDevice.SOURCE_MOUSE, 0,
+    )
+    view.dispatchGenericMotionEvent(ev)
+    ev.recycle()
+}
 
 @android.annotation.SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun WebViewer(vm: ExplorerViewModel) {
+fun WebViewer(vm: ExplorerViewModel, onClose: () -> Unit, onOpenAsText: () -> Unit, onOpenWith: () -> Unit) {
     val file = vm.viewing ?: return
-    val context = LocalContext.current
     val stepPx = with(androidx.compose.ui.platform.LocalDensity.current) { CrownStep.toPx() }
     var web by remember { mutableStateOf<android.webkit.WebView?>(null) }
+    var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var crashed by remember { mutableStateOf(false) }
+    // Create the WebView one frame later, so the spinner is on screen while Chromium starts up
+    // (that start-up blocks the main thread for a few seconds on the watch).
+    var create by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { withFrameNanos { }; delay(50); create = true }
+
     // Same glide as the lists: each crown click adds a step, and the page eases toward it.
     var pending by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(web) {
@@ -369,42 +397,76 @@ fun WebViewer(vm: ExplorerViewModel) {
             val p = pending
             if (kotlin.math.abs(p) > 0.5f) {
                 val d = if (kotlin.math.abs(p) < 2f) p else p * 0.28f
-                w.scrollBy(0, d.toInt().let { if (it == 0) (if (d > 0) 1 else -1) else it })
+                wheel(w, d)
                 pending = p - d
             }
         }
     }
     DisposableEffect(Unit) { onDispose { web?.destroy() } }
+    KeepScreenOn()
+
     Box(
-        Modifier.fillMaxSize().background(Color.White).crownTicks { d -> pending += d * stepPx },
+        Modifier.fillMaxSize().background(Color.Black).crownTicks { d -> pending += d * stepPx },
         contentAlignment = Alignment.Center,
     ) {
-        if (error != null) {
-            Box(Modifier.fillMaxSize().background(Color.Black)) { CenteredMessage(error!!, ErrorColor) }
-        } else {
-            AndroidView(
+        when {
+            crashed -> ListScreen {
+                header("Page too heavy")
+                note("The watch's web viewer ran out of memory on this page.", ErrorColor)
+                item { ActionChip("Open as text", R.drawable.ic_text, colors = androidx.wear.compose.material.ChipDefaults.primaryChipColors(), onClick = onOpenAsText) }
+                item { ActionChip("Open with another app", R.drawable.ic_open, onClick = onOpenWith) }
+                item { ActionChip("Back", R.drawable.ic_close, onClick = onClose) }
+            }
+            error != null -> CenteredMessage(error!!, ErrorColor)
+            create -> AndroidView(
                 factory = { ctx ->
                     try {
                         android.webkit.WebView(ctx).apply {
+                            setBackgroundColor(android.graphics.Color.BLACK)
                             settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true // many single-file apps save progress here
                             settings.allowFileAccess = true // local pages and their images
-                            settings.useWideViewPort = true
-                            settings.loadWithOverviewMode = true
                             settings.builtInZoomControls = true
                             settings.displayZoomControls = false
-                            // Keep a margin so the round screen doesn't cut off the first and last lines.
-                            setPadding(0, 0, 0, 0)
+                            webViewClient = object : android.webkit.WebViewClient() {
+                                override fun onPageFinished(view: android.webkit.WebView?, url: String?) { loading = false }
+
+                                // The watch's WebView can run out of memory on big pages and its
+                                // renderer dies. Without this the whole app is killed with it.
+                                override fun onRenderProcessGone(
+                                    view: android.webkit.WebView?,
+                                    detail: android.webkit.RenderProcessGoneDetail?,
+                                ): Boolean {
+                                    (view?.parent as? android.view.ViewGroup)?.removeView(view)
+                                    view?.destroy()
+                                    if (web === view) web = null
+                                    loading = false
+                                    crashed = true
+                                    return true
+                                }
+                            }
                             loadUrl(android.net.Uri.fromFile(file).toString())
                             web = this
                         }
                     } catch (e: Exception) {
-                        // Some watches ship without a working WebView.
                         error = "This watch can't show web pages. Long-press the file and use Open with another app."
                         android.view.View(ctx)
                     }
                 },
-                modifier = Modifier.fillMaxSize().padding(vertical = 20.dp),
+                // Keep the page inside the round screen: the corners of a square view are cut off.
+                modifier = Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 30.dp),
             )
+        }
+        if (loading && error == null && !crashed) CircularProgressIndicator(Modifier.size(36.dp))
+        // Swipe-to-go-back is off here so the page gets every swipe; this button leaves instead.
+        if (!crashed) Box(Modifier.fillMaxSize().padding(top = 2.dp), contentAlignment = Alignment.TopCenter) {
+            Button(
+                onClick = onClose,
+                colors = ButtonDefaults.secondaryButtonColors(),
+                modifier = Modifier.size(26.dp),
+            ) {
+                Icon(painterResource(R.drawable.ic_close), contentDescription = "Close", modifier = Modifier.size(16.dp))
+            }
         }
     }
 }
