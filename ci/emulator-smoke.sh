@@ -40,7 +40,9 @@ wait_text() {
   done
   echo "Timed out waiting for text: $1" >&2
   shot "missing-$(echo "$1" | tr -c 'a-zA-Z0-9' '_')"
-  cat ui.xml >&2 || true
+  echo "== Crash log" >&2
+  adb logcat -d -b crash >&2 || true
+  adb logcat -d -s AndroidRuntime:E >&2 || true
   return 1
 }
 
@@ -74,6 +76,7 @@ open("pic.png", "wb").write(png)
 PY
 adb push pic.png $T/pic.png
 
+adb logcat -c || true
 echo "== Install and grant All files access (what the README tells you to do on the watch)"
 adb install -r "$APK"
 adb shell appops set $PKG MANAGE_EXTERNAL_STORAGE allow
