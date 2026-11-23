@@ -186,6 +186,9 @@ fun BrowseScreen(
                             kind = e.kind,
                             secondary = if (e.isDir) {
                                 if (e.childCount < 0) "Can't open" else "${e.childCount} item${if (e.childCount == 1) "" else "s"}"
+                            } else if (e.name.endsWith(".part")) {
+                                // Home Files writes downloads as name.part and renames them when done.
+                                "Still downloading · " + formatSize(e.size)
                             } else {
                                 formatSize(e.size) + " · " + formatDate(e.modified)
                             },
