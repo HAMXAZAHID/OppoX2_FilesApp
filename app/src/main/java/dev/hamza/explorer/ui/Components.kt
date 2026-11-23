@@ -1,6 +1,7 @@
 package dev.hamza.explorer.ui
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -123,6 +124,7 @@ fun ActionChip(
 }
 
 /** A file or folder row: tap opens it, long-press shows its options. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ItemRow(
     name: String,
