@@ -21,8 +21,8 @@ android {
         applicationId = "dev.hamza.explorer"
         minSdk = 30 // The Chinese OPPO Watch X2 runs ColorOS Watch on Android 11 (API 30).
         targetSdk = 34
-        versionCode = 4
-        versionName = "0.1.3"
+        versionCode = 5
+        versionName = "0.1.4"
     }
 
     signingConfigs {

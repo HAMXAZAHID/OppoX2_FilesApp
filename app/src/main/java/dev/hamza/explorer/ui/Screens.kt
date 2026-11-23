@@ -321,7 +321,7 @@ fun SettingsScreen(vm: ExplorerViewModel, onAccess: () -> Unit) {
                 onClick = onAccess,
             )
         }
-        note("Explorer 0.1.3 · works offline, no Google services needed.")
+        note("Explorer 0.1.4 · works offline, no Google services needed.")
     }
 }
 

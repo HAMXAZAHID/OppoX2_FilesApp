@@ -380,6 +380,8 @@ fun WebViewer(vm: ExplorerViewModel, onClose: () -> Unit, onOpenAsText: () -> Un
 
     // Same glide and slow step as the lists: each crown click adds a step, and the page eases toward it.
     var pending by remember { mutableFloatStateOf(0f) }
+    // While a finger rests on the page, the crown zooms instead of scrolling.
+    var fingerDown by remember { mutableStateOf(false) }
     LaunchedEffect(web) {
         val w = web ?: return@LaunchedEffect
         while (true) {
@@ -400,7 +402,10 @@ fun WebViewer(vm: ExplorerViewModel, onClose: () -> Unit, onOpenAsText: () -> Un
     KeepScreenOn()
 
     Box(
-        Modifier.fillMaxSize().background(Color.Black).crownTicks { d -> pending += d * stepPx },
+        Modifier.fillMaxSize().background(Color.Black).crownTicks { d ->
+            val w = web
+            if (fingerDown && w != null) w.zoomBy(if (d > 0) 1.12f else 1f / 1.12f) else pending += d * stepPx
+        },
         contentAlignment = Alignment.Center,
     ) {
         when {
@@ -448,6 +453,11 @@ fun WebViewer(vm: ExplorerViewModel, onClose: () -> Unit, onOpenAsText: () -> Un
                                     crashed = true
                                     return true
                                 }
+                            }
+                            setOnTouchListener { _, ev ->
+                                fingerDown = ev.actionMasked != android.view.MotionEvent.ACTION_UP &&
+                                    ev.actionMasked != android.view.MotionEvent.ACTION_CANCEL
+                                false // the page still gets the touch
                             }
                             loadUrl(android.net.Uri.fromFile(file).toString())
                             web = this
