@@ -122,7 +122,7 @@ class FileOpsTest {
     @Test fun createAndDeleteFolder() {
         val d = tmp.newFolder("d")
         val f = FileOps.createFolder(d, "New")
-        file(f, "deep/er/file.txt")
+        file(f, "deep/er/file.txt", "8 bytes!")
         assertFailsWith<IOException> { FileOps.createFolder(d, "New") }
         assertEquals(FolderStats(1, 2, 8), FileOps.stats(f))
         FileOps.delete(f)
