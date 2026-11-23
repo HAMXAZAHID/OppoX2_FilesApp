@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lets other apps open any file you pick in the explorer. -->
+<paths>
+    <external-path name="storage" path="." />
+    <root-path name="root" path="." />
+</paths>

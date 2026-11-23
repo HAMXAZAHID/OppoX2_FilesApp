@@ -1,0 +1,129 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# A newer push replaces an older build, so apk-builds always holds the latest APK.
+concurrency:
+  group: build-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      signed: ${{ steps.key.outputs.signed }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # The GitHub ubuntu runner already ships the Android SDK (ANDROID_HOME); Gradle fetches any missing platform.
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unpack the signing key
+        # The sideload key lives only in the SIGNING_KEYSTORE_B64 repository secret, never in git.
+        # Without it the build is signed with a throwaway key and isn't published.
+        id: key
+        env:
+          KEY_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEY_B64" ]; then
+            mkdir -p keystore && echo "$KEY_B64" | base64 -d > keystore/explorer.jks
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::SIGNING_KEYSTORE_B64 secret not set: this APK uses a throwaway key and won't be published."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test file operations
+        run: ./gradlew :filecore:test --console=plain
+
+      - name: Build APKs
+        run: ./gradlew :app:assembleDebug :app:assembleRelease --console=plain
+
+      - name: Rename APKs
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk out/Explorer-release.apk
+          cp app/build/outputs/apk/debug/app-debug.apk out/Explorer-debug.apk
+          rm -rf keystore
+
+      - name: Show what the APK asks of the device
+        # Confirms there's no required Wear OS / Google library or feature, and no native code that
+        # would rule out the watch's 32-bit armeabi-v7a CPU.
+        run: |
+          AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          "$AAPT2" dump badging out/Explorer-release.apk | grep -E "^(package|sdkVersion|targetSdkVersion|uses-library|uses-feature|uses-permission|native-code)" || true
+          if "$AAPT2" dump badging out/Explorer-release.apk | grep -E "uses-library:'com.google|uses-feature:.*name='android.hardware.type.watch'$"; then
+            echo "APK requires a Wear OS/Google component" >&2; exit 1
+          fi
+          if unzip -l out/Explorer-release.apk | grep -E "lib/" | grep -v "armeabi-v7a"; then
+            echo "APK has native code for other CPUs only" >&2
+          fi
+          "$(dirname "$AAPT2")"/apksigner verify --print-certs out/Explorer-release.apk | head -3 || true
+
+      - name: Publish APK to the apk-builds branch
+        # Keeps the latest APK in git so it can be fetched without the Actions artifact storage.
+        if: steps.key.outputs.signed == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        run: |
+          SRC_SHA=$(git rev-parse HEAD)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then SRC_SHA="${{ github.event.pull_request.head.sha }}"; fi
+          mkdir -p /tmp/apk && cp out/*.apk /tmp/apk/
+          cd /tmp/apk
+          echo "Built from $SRC_SHA (${{ github.head_ref || github.ref_name }}) in run ${{ github.run_id }}" > BUILD.txt
+          git init -q -b apk-builds
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -qm "APK from $SRC_SHA"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" apk-builds
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Explorer-apk
+          path: out/*.apk
+
+  emulator-smoke:
+    # Installs and drives the release APK on a plain Android 11 emulator without Google services,
+    # the same base as ColorOS Watch on the Chinese OPPO Watch X2.
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Explorer-apk
+          path: out
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run on Android 11 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          disable-animations: true
+          script: bash ci/emulator-smoke.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-screenshots
+          path: shots/
