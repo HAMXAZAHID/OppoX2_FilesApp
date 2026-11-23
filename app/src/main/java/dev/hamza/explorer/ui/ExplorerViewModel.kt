@@ -115,7 +115,7 @@ class ExplorerViewModel(app: Application) : AndroidViewModel(app) {
     fun quickFolders(): List<File> = listOf(
         Environment.DIRECTORY_MUSIC, Environment.DIRECTORY_PICTURES,
         Environment.DIRECTORY_DCIM, Environment.DIRECTORY_MOVIES, Environment.DIRECTORY_DOCUMENTS,
-        Environment.DIRECTORY_RECORDINGS,
+        "Recordings", // Environment.DIRECTORY_RECORDINGS only exists from Android 12.
     ).map { File(primary, it) }.filter { it.isDirectory }
 
     /** Shows paths the way people know them: "/sdcard/Music" instead of "/storage/emulated/0/Music". */
