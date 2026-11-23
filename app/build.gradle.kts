@@ -58,6 +58,9 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
 
+    // Fail the release build on any API newer than the watch's Android 11 (lintVital checks fatal issues).
+    lint { fatal += "NewApi" }
+
     packaging {
         resources {
             excludes += setOf("META-INF/{AL2.0,LGPL2.1}", "META-INF/LICENSE*", "META-INF/NOTICE*")
