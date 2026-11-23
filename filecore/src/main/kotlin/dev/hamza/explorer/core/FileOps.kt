@@ -38,7 +38,7 @@ object FileOps {
     private val image = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp", "heic", "heif")
     private val text = setOf(
         "txt", "md", "log", "json", "xml", "csv", "tsv", "ini", "conf", "cfg", "properties", "yaml", "yml",
-        "toml", "html", "htm", "css", "js", "ts", "kt", "kts", "java", "py", "sh", "bat", "c", "h", "cpp",
+        "toml", "css", "js", "ts", "kt", "kts", "java", "py", "sh", "bat", "c", "h", "cpp",
         "srt", "lrc", "nfo", "gradle", "sql", "rc", "prop",
     )
     private val audio = setOf("mp3", "m4a", "aac", "wav", "ogg", "oga", "flac", "opus", "amr", "mid", "midi", "wma")
