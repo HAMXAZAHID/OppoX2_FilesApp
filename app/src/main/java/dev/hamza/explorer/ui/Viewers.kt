@@ -353,32 +353,22 @@ fun VideoPlayer(vm: ExplorerViewModel) {
 // ---------------- Web pages: shown in the app with the system WebView ----------------
 
 /**
- * Sends one smooth wheel scroll to the page at its centre. Chromium routes wheel events to the
- * element under the pointer, so this also scrolls pages whose content sits in an inner scrolling
- * box (where WebView.scrollBy does nothing).
+ * Scrolls the page by [cssPx] with JavaScript: the scrollable box under the screen centre if
+ * there is one (many single-file apps scroll an inner box, not the page), else the page.
+ * Wheel events were far too fast on the watch's WebView, so the crown no longer uses them.
  */
-private fun wheel(view: android.webkit.WebView, pixels: Float) {
-    val factor = android.view.ViewConfiguration.get(view.context).scaledVerticalScrollFactor
-    val props = android.view.MotionEvent.PointerProperties().apply { id = 0; toolType = android.view.MotionEvent.TOOL_TYPE_MOUSE }
-    val coords = android.view.MotionEvent.PointerCoords().apply {
-        x = view.width / 2f
-        y = view.height / 2f
-        setAxisValue(android.view.MotionEvent.AXIS_VSCROLL, -pixels / factor)
-    }
-    val now = android.os.SystemClock.uptimeMillis()
-    val ev = android.view.MotionEvent.obtain(
-        now, now, android.view.MotionEvent.ACTION_SCROLL, 1, arrayOf(props), arrayOf(coords),
-        0, 0, 1f, 1f, 0, 0, android.view.InputDevice.SOURCE_MOUSE, 0,
-    )
-    view.dispatchGenericMotionEvent(ev)
-    ev.recycle()
-}
+private const val SCROLL_JS =
+    "window.__xs=function(d){var e=document.elementFromPoint(innerWidth/2,innerHeight/2);" +
+        "while(e&&e!==document.body&&e!==document.documentElement){var o=getComputedStyle(e).overflowY;" +
+        "if((o=='auto'||o=='scroll')&&e.scrollHeight>e.clientHeight){e.scrollTop+=d;return;}e=e.parentElement;}" +
+        "var r=document.scrollingElement||document.documentElement;r.scrollTop+=d;};"
 
 @android.annotation.SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun WebViewer(vm: ExplorerViewModel, onClose: () -> Unit, onOpenAsText: () -> Unit, onOpenWith: () -> Unit) {
     val file = vm.viewing ?: return
-    val stepPx = with(androidx.compose.ui.platform.LocalDensity.current) { CrownStep.toPx() }
+    // The page works in CSS pixels, which match dp, so one click is CrownStep.value of them.
+    val stepPx = CrownStep.value
     var web by remember { mutableStateOf<android.webkit.WebView?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -388,17 +378,21 @@ fun WebViewer(vm: ExplorerViewModel, onClose: () -> Unit, onOpenAsText: () -> Un
     var create by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { withFrameNanos { }; delay(50); create = true }
 
-    // Same glide as the lists: each crown click adds a step, and the page eases toward it.
+    // Same glide and slow step as the lists: each crown click adds a step, and the page eases toward it.
     var pending by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(web) {
         val w = web ?: return@LaunchedEffect
         while (true) {
             withFrameNanos { }
             val p = pending
-            if (kotlin.math.abs(p) > 0.5f) {
-                val d = if (kotlin.math.abs(p) < 2f) p else p * 0.28f
-                wheel(w, d)
+            if (kotlin.math.abs(p) >= 1f) {
+                // pending is in CSS pixels (dp at the page's normal zoom); send whole pixels.
+                var d = if (kotlin.math.abs(p) < 3f) p else p * 0.28f
+                d = if (d > 0) kotlin.math.max(1f, kotlin.math.floor(d)) else kotlin.math.min(-1f, kotlin.math.ceil(d))
+                w.evaluateJavascript("window.__xs&&__xs(${d.toInt()})", null)
                 pending = p - d
+            } else {
+                pending = 0f
             }
         }
     }
@@ -432,6 +426,7 @@ fun WebViewer(vm: ExplorerViewModel, onClose: () -> Unit, onOpenAsText: () -> Un
                                 override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
                                     loading = false
                                     // Pages a little wider than the watch would scroll sideways; clip them instead.
+                                    view?.evaluateJavascript(SCROLL_JS, null)
                                     view?.evaluateJavascript(
                                         "(function(){var s=document.createElement('style');" +
                                             "s.textContent='html,body{overflow-x:hidden!important;max-width:100%!important}';" +
