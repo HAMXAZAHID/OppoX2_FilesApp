@@ -2,13 +2,9 @@ package dev.hamza.explorer.ui
 
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.ScrollableState
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -23,15 +19,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.sign
 
-/** How far one crown click scrolls. Changed in Settings; same steps as Home Files. */
-object Crown {
-    val speeds = listOf("Slow" to 24.dp, "Normal" to 44.dp, "Fast" to 80.dp)
-    var index by mutableIntStateOf(1)
-    val step: Dp get() = speeds[index].second
-    val label: String get() = speeds[index].first
-}
+/** How far one crown click scrolls (the "Normal" step the user picked in Home Files). */
+private val CrownStep: Dp = 44.dp
 
 /**
  * Scrolls a fixed distance per crown click, whatever size the system says the click is.
@@ -41,7 +33,7 @@ object Crown {
  */
 @Composable
 fun Modifier.crownScroll(state: ScrollableState): Modifier {
-    val stepPx = with(LocalDensity.current) { Crown.step.toPx() }
+    val stepPx = with(LocalDensity.current) { CrownStep.toPx() }
     val scope = rememberCoroutineScope()
     val focus = remember { FocusRequester() }
     val ticker = remember { CrownTicker() }
@@ -49,12 +41,22 @@ fun Modifier.crownScroll(state: ScrollableState): Modifier {
 
     fun onTick(direction: Float) {
         if (direction == 0f || !ticker.accept()) return
-        ticker.target += direction * stepPx
-        ticker.job?.cancel()
+        ticker.pending += direction * stepPx
+        if (ticker.job?.isActive == true) return
+        // One animation runs for as long as clicks keep coming, easing toward the target every
+        // frame. Restarting a short tween per click is what made it look like 10 fps.
         ticker.job = scope.launch {
-            val distance = ticker.target
-            ticker.target = 0f
-            state.animateScrollBy(distance, tween(durationMillis = 90))
+            // A touch drag takes over the list and cancels this; drop what was left.
+            try { state.scroll {
+                while (abs(ticker.pending) > 0.5f) {
+                    withFrameNanos { }
+                    val p = ticker.pending
+                    val d = if (abs(p) < 2f) p else p * 0.28f
+                    val used = scrollBy(d)
+                    ticker.pending -= d
+                    if (abs(used) < 0.01f) { ticker.pending = 0f; break }
+                }
+            } } finally { if (ticker.job?.isCancelled == true) ticker.pending = 0f }
         }
     }
 
@@ -80,7 +82,7 @@ fun Modifier.crownScroll(state: ScrollableState): Modifier {
 }
 
 private class CrownTicker {
-    var target = 0f
+    var pending = 0f
     var job: Job? = null
     private var last = 0L
 

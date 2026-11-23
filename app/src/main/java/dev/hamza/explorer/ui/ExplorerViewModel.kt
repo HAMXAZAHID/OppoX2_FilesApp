@@ -84,14 +84,9 @@ class ExplorerViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     init {
-        Crown.index = prefs.getInt("crown", 1).coerceIn(0, Crown.speeds.lastIndex)
         refreshAccess()
     }
 
-    fun cycleCrown() {
-        Crown.index = (Crown.index + 1) % Crown.speeds.size
-        prefs.edit().putInt("crown", Crown.index).apply()
-    }
 
     fun refreshAccess() {
         val ctx = getApplication<Application>()
@@ -113,9 +108,12 @@ class ExplorerViewModel(app: Application) : AndroidViewModel(app) {
         return out
     }
 
-    /** Common folders that exist on this watch. */
+    /** The shared Download folder, where Home Files saves what it downloads. */
+    val downloads: File get() = File(primary, Environment.DIRECTORY_DOWNLOADS)
+
+    /** Other common folders that exist on this watch. */
     fun quickFolders(): List<File> = listOf(
-        Environment.DIRECTORY_DOWNLOADS, Environment.DIRECTORY_MUSIC, Environment.DIRECTORY_PICTURES,
+        Environment.DIRECTORY_MUSIC, Environment.DIRECTORY_PICTURES,
         Environment.DIRECTORY_DCIM, Environment.DIRECTORY_MOVIES, Environment.DIRECTORY_DOCUMENTS,
         Environment.DIRECTORY_RECORDINGS,
     ).map { File(primary, it) }.filter { it.isDirectory }

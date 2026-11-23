@@ -4,8 +4,8 @@ A file explorer for the watch's own storage, built for the **Chinese OPPO Watch 
 
 On the watch you can:
 
-- browse the watch storage (and any other storage volume), with shortcuts to Download, Music, Pictures and other common folders
-- scroll with the crown, at a speed you pick in Settings (Slow, Normal, Fast)
+- browse the watch storage (and any other storage volume). **Downloads** (`/sdcard/Download`, where Home Files saves its downloads) is the first thing on the home screen, with shortcuts to Music, Pictures and other common folders below
+- scroll smoothly with the crown: each click moves the list a fixed distance, whatever size the watch reports for it
 - tap a file to open it: images (pinch or turn the crown to zoom, double-tap to reset), text files, music (crown changes the volume) and videos are shown in the app; other files go to any app that can open them
 - long-press a file or folder for its options: copy, move, rename, delete, open with another app, and its size
 - copy or move: pick Copy or Move, go to the folder you want, and tap **Paste here**. Name clashes get "(1)" added instead of overwriting.

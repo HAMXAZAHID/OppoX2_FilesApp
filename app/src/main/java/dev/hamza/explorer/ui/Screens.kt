@@ -73,6 +73,13 @@ fun HomeScreen(vm: ExplorerViewModel, onFolder: (File) -> Unit, onAccess: () -> 
         vm.clip?.let { c ->
             note("${if (c.cut) "Moving" else "Copying"} ${c.file.name}: open a folder and tap Paste here.")
         }
+        item {
+            ActionChip(
+                "Downloads", R.drawable.ic_folder,
+                secondary = "Home Files saves here",
+                colors = ChipDefaults.primaryChipColors(),
+            ) { vm.downloads.mkdirs(); onFolder(vm.downloads) }
+        }
         roots.forEach { r ->
             item {
                 ActionChip(
@@ -297,7 +304,6 @@ fun SettingsScreen(vm: ExplorerViewModel, onAccess: () -> Unit) {
     ListScreen {
         header("Settings")
         item { ActionChip("Sort by", R.drawable.ic_sort, secondary = vm.sort.label) { vm.cycleSort() } }
-        item { ActionChip("Crown speed", R.drawable.ic_sort, secondary = Crown.label) { vm.cycleCrown() } }
         item {
             ActionChip("Hidden files", R.drawable.ic_hidden, secondary = if (vm.showHidden) "Shown" else "Hidden") { vm.toggleHidden() }
         }
